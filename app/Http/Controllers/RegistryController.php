@@ -102,15 +102,4 @@ class RegistryController extends Controller
         }
     }
 
-    // ELIMINAMOS ESTE MÉTODO PORQUE AHORA SE HEREDA DEL CONTROLLER BASE
-    /*
-    protected function response($success, $message, $data = null, $status = 200)
-    {
-        return response()->json([
-            'success' => $success,
-            'message' => $message,
-            'data'    => $data,
-        ], $status);
-    }
-    */
 }

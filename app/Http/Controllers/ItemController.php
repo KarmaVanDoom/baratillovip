@@ -15,7 +15,7 @@ class ItemController extends Controller
     public function index()
     {
         try{
-            $items = item::all();
+            $items = Item::all();
             // ANTES: $this->response(1, 'Lista de items extraída correctamente', $items);
             // AHORA:
             return $this->response(true, 'Lista de items extraída correctamente', $items);
@@ -41,7 +41,7 @@ class ItemController extends Controller
         }
 
         try {
-            $newItem = item::create($validator->validated());
+            $newItem = Item::create($validator->validated());
             // ANTES: $this->response(1, 'item creado', $newItem, 201);
             // AHORA:
             return $this->response(true, 'Item creado correctamente', $newItem, 201);
@@ -53,7 +53,7 @@ class ItemController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(item $item)
+    public function show(Item $item)
     {
         try {
             // ANTES: $this->response(1, 'item encontrado', $item);
@@ -67,7 +67,7 @@ class ItemController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, item $item)
+    public function update(Request $request, Item $item)
     {
         $validator = Validator::make($request->all(), [
             'marca' => 'sometimes|required|string|max:255',
@@ -93,7 +93,7 @@ class ItemController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(?item $item)
+    public function destroy(Item $item)
     {
         if (!$item) {
             return $this->response(false, 'Item no encontrado', null, 404);

@@ -9,7 +9,6 @@ class Item extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id',
         'marca',
         'tipo',
         'talla',

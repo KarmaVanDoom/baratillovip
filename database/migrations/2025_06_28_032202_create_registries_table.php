@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('registries', function (Blueprint $table) {
             $table->id();
-            $table->integer('item_id')->references('id')->on('items')->onDelete('cascade');
+            $table->foreignId('item_id')->constrained('items')->onDelete('cascade');
             $table->dateTime('fecha_hora_ingreso');
             $table->string('color');
             $table->enum('estado', ['nuevo', 'poco uso', 'usado']);

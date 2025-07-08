@@ -9,7 +9,6 @@ class Registry extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id',
         'item_id',
         'fecha_hora_ingreso',
         'color',
@@ -20,7 +19,7 @@ class Registry extends Model
     /**
      * Un registro (Registry) pertenece a un Item.
      */
-    public function item()
+    public function Item()
     {
         return $this->belongsTo(Item::class);
     }
