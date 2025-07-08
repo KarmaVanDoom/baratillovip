@@ -17,6 +17,7 @@ return new class extends Migration
             $table->enum('tipo', ['polera','pantalón','camisa','chaqueta','falda','vestido','zapato','zapatilla']);
             $table->integer('talla');
             $table->integer('stock');
+            $table->timestamps(); 
         });
     }
 

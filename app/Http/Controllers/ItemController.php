@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Item;
 use App\Models\Registry;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class ItemController extends Controller
 {
@@ -14,13 +14,12 @@ class ItemController extends Controller
      */
     public function index()
     {
-        try{
+        try {
+            // Listar todos los items....
             $items = Item::all();
-            // ANTES: $this->response(1, 'Lista de items extraída correctamente', $items);
-            // AHORA:
-            return $this->response(true, 'Lista de items extraída correctamente', $items);
+            return response()->json(['items' => $items], 200);
         } catch (\Exception $e) {
-            return $this->response(false, 'Error al consultar items: ' . $e->getMessage(), null, 500);
+            return response()->json(['error' => 'Error al cargar el inventario: ' . $e->getMessage()], 500);
         }
     }
 
@@ -29,111 +28,230 @@ class ItemController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'marca' => 'required|string|max:255',
-            'tipo' => 'required|string|in:polera,pantalón,camisa,chaqueta,falda,vestido,zapato,zapatilla', // Mejorado para usar la lista del enum
-            'talla' => 'required|integer', // Talla debería ser integer
-            'stock' => 'required|integer|min:0',
-        ]); 
-
-        if ($validator->fails()) {
-            return $this->response(false, 'Error de validación', $validator->errors(), 422);
-        }
-
         try {
-            $newItem = Item::create($validator->validated());
-            // ANTES: $this->response(1, 'item creado', $newItem, 201);
-            // AHORA:
-            return $this->response(true, 'Item creado correctamente', $newItem, 201);
+            // Validaciones del servidor....
+            $request->validate([
+                'marca' => 'required|string|max:255|min:1',
+                'tipo' => 'required|in:polera,pantalon,camisa,chaqueta,falda,vestido,zapato,zapatilla',
+                'talla' => 'required|integer|min:1|max:100',
+                'stock' => 'required|integer|min:0|max:9999'
+            ], [
+                'marca.required' => 'La marca es requerida',
+                'marca.string' => 'La marca debe ser texto',
+                'marca.max' => 'La marca no puede tener más de 255 caracteres',
+                'marca.min' => 'La marca no puede estar vacía',
+                'tipo.required' => 'El tipo es requerido',
+                'tipo.in' => 'El tipo debe ser: polera, pantalón, camisa, chaqueta, falda, vestido, zapato o zapatilla',
+                'talla.required' => 'La talla es requerida',
+                'talla.integer' => 'La talla debe ser un número entero',
+                'talla.min' => 'La talla debe ser mayor a 0',
+                'talla.max' => 'La talla no puede ser mayor a 100',
+                'stock.required' => 'El stock es requerido',
+                'stock.integer' => 'El stock debe ser un número entero',
+                'stock.min' => 'El stock no puede ser negativo',
+                'stock.max' => 'El stock no puede ser mayor a 9999'
+            ]);
+
+            // Validar duplicados (misma marca, tipo y talla)
+            $itemExistente = Item::where('marca', $request->marca)
+                                 ->where('tipo', $request->tipo)
+                                 ->where('talla', $request->talla)
+                                 ->first();
+
+            if ($itemExistente) {
+                return response()->json([
+                    'error' => 'Ya existe una prenda con la misma marca, tipo y talla'
+                ], 422);
+            }
+
+            // Limpiar y formatear datos
+            $marca = trim($request->marca);
+            $tipo = strtolower(trim($request->tipo));
+            $talla = (int) $request->talla;
+            $stock = (int) $request->stock;
+
+            $newItem = Item::create([
+                'marca' => $marca,
+                'tipo' => $tipo,
+                'talla' => $talla,
+                'stock' => $stock
+            ]);
+
+            return response()->json([
+                'message' => 'Prenda agregada exitosamente',
+                'item' => $newItem
+            ], 201);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'error' => 'Datos inválidos',
+                'details' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
-            return $this->response(false, 'Error al crear item: ' . $e->getMessage(), null, 500);
+            return response()->json([
+                'error' => 'Error al guardar la prenda: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Item $item)
+    public function show($id)
     {
         try {
-            // ANTES: $this->response(1, 'item encontrado', $item);
-            // AHORA:
-            return $this->response(true, 'Item encontrado', $item);
+            // Validar que el ID sea numérico
+            if (!is_numeric($id)) {
+                return response()->json(['error' => 'ID inválido'], 400);
+            }
+
+            $item = Item::find($id);
+
+            if (!$item) {
+                return response()->json(['error' => 'Prenda no encontrada'], 404);
+            }
+
+            return response()->json(['item' => $item], 200);
         } catch (\Exception $e) {
-            return $this->response(false, 'Error al consultar item: ' . $e->getMessage(), null, 500);
+            return response()->json(['error' => 'Error al obtener la prenda: ' . $e->getMessage()], 500);
         }
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Item $item)
+    public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'marca' => 'sometimes|required|string|max:255',
-            'tipo' => 'sometimes|required|string|in:polera,pantalón,camisa,chaqueta,falda,vestido,zapato,zapatilla', // Mejorado
-            'talla' => 'sometimes|required|integer', // Mejorado
-            'stock' => 'sometimes|required|integer|min:0',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->response(false, 'Error de validación', $validator->errors(), 422);
-        }
-
         try {
-            $item->update($validator->validated());
-            // ANTES: $this->response(1, 'item actualizado', $item);
-            // AHORA:
-            return $this->response(true, 'Item actualizado correctamente', $item);
+            // Validar que el ID sea numérico
+            if (!is_numeric($id)) {
+                return response()->json(['error' => 'ID inválido'], 400);
+            }
+
+            $item = Item::find($id);
+
+            if (!$item) {
+                return response()->json(['error' => 'Prenda no encontrada'], 404);
+            }
+
+            // Validaciones del servidor....
+            $request->validate([
+                'marca' => 'required|string|max:255|min:1',
+                'tipo' => 'required|in:polera,pantalon,camisa,chaqueta,falda,vestido,zapato,zapatilla',
+                'talla' => 'required|integer|min:1|max:100',
+                'stock' => 'required|integer|min:0|max:9999'
+            ], [
+                'marca.required' => 'La marca es requerida',
+                'marca.string' => 'La marca debe ser texto',
+                'marca.max' => 'La marca no puede tener más de 255 caracteres',
+                'marca.min' => 'La marca no puede estar vacía',
+                'tipo.required' => 'El tipo es requerido',
+                'tipo.in' => 'El tipo debe ser: polera, pantalón, camisa, chaqueta, falda, vestido, zapato o zapatilla',
+                'talla.required' => 'La talla es requerida',
+                'talla.integer' => 'La talla debe ser un número entero',
+                'talla.min' => 'La talla debe ser mayor a 0',
+                'talla.max' => 'La talla no puede ser mayor a 100',
+                'stock.required' => 'El stock es requerido',
+                'stock.integer' => 'El stock debe ser un número entero',
+                'stock.min' => 'El stock no puede ser negativo',
+                'stock.max' => 'El stock no puede ser mayor a 9999'
+            ]);
+
+            // Validar duplicados (excluyendo el item actual)
+            $itemExistente = Item::where('marca', $request->marca)
+                                 ->where('tipo', $request->tipo)
+                                 ->where('talla', $request->talla)
+                                 ->where('id', '!=', $id)
+                                 ->first();
+
+            if ($itemExistente) {
+                return response()->json([
+                    'error' => 'Ya existe otra prenda con la misma marca, tipo y talla'
+                ], 422);
+            }
+
+            // Validar que el stock no sea menor que los registros existentes
+            $registrosCount = Registry::where('item_id', $id)->count();
+            if ($request->stock < $registrosCount) {
+                return response()->json([
+                    'error' => "El stock no puede ser menor a {$registrosCount} (registros existentes)"
+                ], 422);
+            }
+
+            // Limpiar y formatear datos
+            $marca = trim($request->marca);
+            $tipo = strtolower(trim($request->tipo));
+            $talla = (int) $request->talla;
+            $stock = (int) $request->stock;
+
+            // Actualizar los campos del item....
+            $item->marca = $marca;
+            $item->tipo = $tipo;
+            $item->talla = $talla;
+            $item->stock = $stock;
+            $item->save();
+
+            return response()->json([
+                'message' => 'Prenda actualizada exitosamente',
+                'item' => $item
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'error' => 'Datos inválidos',
+                'details' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
-            return $this->response(false, 'Error al actualizar item: ' . $e->getMessage(), null, 500);
+            return response()->json([
+                'error' => 'Error al actualizar la prenda: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Item $item)
+    public function destroy($id)
     {
-        if (!$item) {
-            return $this->response(false, 'Item no encontrado', null, 404);
-        }
-
-        if ($item->stock > 0) {
-            return $this->response(false, 'No se puede eliminar una prenda que tiene stock.', null, 409);
-        }
-
         try {
+            // Validar que el ID sea numérico
+            if (!is_numeric($id)) {
+                return response()->json(['error' => 'ID inválido'], 400);
+            }
+
+            $item = Item::find($id);
+
+            if (!$item) {
+                return response()->json(['error' => 'Prenda no encontrada'], 404);
+            }
+
+            // Validar que no tenga stock
+            if ($item->stock > 0) {
+                return response()->json([
+                    'error' => 'No se puede eliminar una prenda con stock. Stock actual: ' . $item->stock
+                ], 422);
+            }
+
+            // Validar que no tenga registros asociados
+            $registrosCount = Registry::where('item_id', $id)->count();
+            if ($registrosCount > 0) {
+                return response()->json([
+                    'error' => "No se puede eliminar la prenda porque tiene {$registrosCount} registros asociados"
+                ], 422);
+            }
+
+            $itemEliminado = $item->toArray(); // Guardar datos antes de eliminar
             $item->delete();
-            // ANTES: $this->response(1, 'item eliminado correctamente', null);
-            // AHORA:
-            return $this->response(true, 'Item eliminado correctamente 1111', null, 200);
-        } catch (\Exception $e) {
-            return $this->response(false, 'Error al eliminar itemmmmm : ' . $e->getMessage(), null, 500);
-        }
-    }
-
-    public function inventory()
-    {
-        try {
-            $items = Item::withCount('registries')->get();
-
-            $inventory = $items->map(function ($item) {
-                return [
-                    'marca' => $item->marca,
-                    'tipo' => $item->tipo,
-                    'talla' => $item->talla,
-                    'stock_disponible' => $item->stock,
-                    'registros_totales' => $item->registries_count,
-                ];
-            });
-
-            // ANTES: $this->response(1, 'Inventario extraído correctamente', $inventory);
-            // AHORA:
-            return $this->response(true, 'Inventario extraído correctamente', $inventory);
+            
+            return response()->json([
+                'message' => 'Prenda eliminada exitosamente',
+                'item' => $itemEliminado
+            ], 200);
 
         } catch (\Exception $e) {
-            return $this->response(false, 'Error al consultar el inventario: ' . $e->getMessage(), null, 500);
+            return response()->json([
+                'error' => 'Error al eliminar la prenda: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

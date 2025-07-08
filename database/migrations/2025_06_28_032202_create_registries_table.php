@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('color');
             $table->enum('estado', ['nuevo', 'poco uso', 'usado']);
             $table->integer('precio');
+            $table->timestamps();
         });
     }
 
