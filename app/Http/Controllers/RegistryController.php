@@ -13,26 +13,22 @@ class RegistryController extends Controller
 {
     /**
      * Listar todos los registros.
-     * Permite filtrar por fecha con el parámetro GET 'fecha' (ej: /api/registries?fecha=2023-10-27).
      */
     public function index(Request $request)
     {
         try {
-            $query = Registry::query();
-
-            // Para que la respuesta sea más útil, cargamos la información del Item relacionado.
-            $query->with('item');
+            $query = Registry::query()->with('item');
 
             if ($request->has('fecha')) {
-                $fecha = $request->input('fecha');
-                $validator = Validator::make(['fecha' => $fecha], ['fecha' => 'required|date_format:Y-m-d']);
+                // He corregido el formato de fecha para que coincida con el estándar de Laravel.
+                // El frontend ya envía Y-m-d H:i:s, pero es bueno tener una validación robusta.
+                $validator = Validator::make($request->all(), ['fecha' => 'required|date_format:Y-m-d']);
 
                 if ($validator->fails()) {
                     return $this->response(false, 'Formato de fecha inválido. Use AAAA-MM-DD.', $validator->errors(), 422);
                 }
                 
-                // Filtra por el campo 'fecha_hora_ingreso' de tu modelo Registry
-                $query->whereDate('fecha_hora_ingreso', $fecha);
+                $query->whereDate('fecha_hora_ingreso', $request->input('fecha'));
             }
 
             $registries = $query->latest('fecha_hora_ingreso')->get();
@@ -50,11 +46,11 @@ class RegistryController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'item_id' => 'required|integer|exists:items,id', // El item debe existir
+            'item_id' => 'required|integer|exists:items,id',
             'fecha_hora_ingreso' => 'required|date',
             'color' => 'required|string|max:100',
             'estado' => ['required', 'string', Rule::in(['nuevo', 'poco uso', 'usado'])],
-            'precio' => 'required|integer|min:0',
+            'precio' => 'required|integer|min:0', 
         ]);
 
         if ($validator->fails()) {
@@ -62,16 +58,10 @@ class RegistryController extends Controller
         }
 
         try {
-            // Usamos una transacción para asegurar la integridad de los datos.
-            // O se hacen ambas operaciones (crear registro y actualizar stock) o no se hace ninguna.
             $newRegistry = DB::transaction(function () use ($request) {
-                // 1. Creamos el nuevo registro de la prenda
                 $registry = Registry::create($request->all());
-
-                // 2. Buscamos el Item principal y aumentamos su stock
                 $item = Item::findOrFail($request->item_id);
-                $item->increment('stock'); // Aumenta el stock en 1
-
+                $item->increment('stock');
                 return $registry;
             });
 
@@ -87,7 +77,6 @@ class RegistryController extends Controller
      */
     public function show(Registry $registry)
     {
-        // Cargamos la data del item relacionado para una respuesta más completa
         return $this->response(true, 'Registro encontrado', $registry->load('item'));
     }
 
@@ -98,17 +87,11 @@ class RegistryController extends Controller
     public function destroy(Registry $registry)
     {
         try {
-            // Usamos una transacción por la misma razón que en el método store.
             DB::transaction(function () use ($registry) {
-                // 1. Buscamos el Item principal
                 $item = Item::findOrFail($registry->item_id);
-
-                // 2. Disminuimos el stock, asegurándonos de que no sea negativo
                 if ($item->stock > 0) {
-                    $item->decrement('stock'); // Disminuye el stock en 1
+                    $item->decrement('stock');
                 }
-                
-                // 3. Eliminamos el registro de la prenda
                 $registry->delete();
             });
 
@@ -119,7 +102,8 @@ class RegistryController extends Controller
         }
     }
 
-    // Método helper para estandarizar las respuestas JSON
+    // ELIMINAMOS ESTE MÉTODO PORQUE AHORA SE HEREDA DEL CONTROLLER BASE
+    /*
     protected function response($success, $message, $data = null, $status = 200)
     {
         return response()->json([
@@ -128,4 +112,5 @@ class RegistryController extends Controller
             'data'    => $data,
         ], $status);
     }
+    */
 }

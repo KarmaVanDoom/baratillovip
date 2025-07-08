@@ -4,12 +4,19 @@ namespace App\Http\Controllers;
 
 abstract class Controller
 {
-    //método de respuesta que estandariza las respuestas de la API, mediante los atributos status, message y data, tambien
-    //permite definir un código de estado HTTP personalizado
-    protected function response(int $status, string $message, mixed $data = null, int $httpCode = 200)
+    /**
+     * Estandariza las respuestas de la API.
+     *
+     * @param bool   $success  Indica si la operación fue exitosa.
+     * @param string $message  Mensaje descriptivo.
+     * @param mixed  $data     Datos a devolver (opcional).
+     * @param int    $httpCode Código de estado HTTP (opcional).
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function response(bool $success, string $message, mixed $data = null, int $httpCode = 200)
     {
         return response()->json([
-            'status'  => $status,
+            'success' => $success,
             'message' => $message,
             'data'    => $data,
         ], $httpCode);

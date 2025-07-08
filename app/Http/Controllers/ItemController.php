@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\item;
+use App\Models\Item;
+use App\Models\Registry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -14,9 +15,10 @@ class ItemController extends Controller
     public function index()
     {
         try{
-
             $items = item::all();
-              return $this->response(true, 'Lista de items extraída correctamente', $items);
+            // ANTES: $this->response(1, 'Lista de items extraída correctamente', $items);
+            // AHORA:
+            return $this->response(true, 'Lista de items extraída correctamente', $items);
         } catch (\Exception $e) {
             return $this->response(false, 'Error al consultar items: ' . $e->getMessage(), null, 500);
         }
@@ -29,27 +31,23 @@ class ItemController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'marca' => 'required|string|max:255',
-            'tipo' => 'required|string|max:255',
-            'talla' => 'required|string|max:50',
+            'tipo' => 'required|string|in:polera,pantalón,camisa,chaqueta,falda,vestido,zapato,zapatilla', // Mejorado para usar la lista del enum
+            'talla' => 'required|integer', // Talla debería ser integer
             'stock' => 'required|integer|min:0',
         ]); 
 
-        // si tengo un error de validación, retorna un error 422
         if ($validator->fails()) {
-            return $this->response(false, 'Error de validación ', $validator->errors(), 422);
+            return $this->response(false, 'Error de validación', $validator->errors(), 422);
         }
-        // Crea el item en base a los parámetros que devuelve la validación
-        $item = $validator->validated();
 
         try {
-            // Crear un nuevo item
-            $newitem = item::create($item);
-
-            return $this->response(true, 'item creado ', $newitem, 201);
+            $newItem = item::create($validator->validated());
+            // ANTES: $this->response(1, 'item creado', $newItem, 201);
+            // AHORA:
+            return $this->response(true, 'Item creado correctamente', $newItem, 201);
         } catch (\Exception $e) {
             return $this->response(false, 'Error al crear item: ' . $e->getMessage(), null, 500);
         }
-
     }
 
     /**
@@ -58,8 +56,9 @@ class ItemController extends Controller
     public function show(item $item)
     {
         try {
-            // Retorna el item solicitado
-            return $this->response(true, 'item encontrado', $item);
+            // ANTES: $this->response(1, 'item encontrado', $item);
+            // AHORA:
+            return $this->response(true, 'Item encontrado', $item);
         } catch (\Exception $e) {
             return $this->response(false, 'Error al consultar item: ' . $e->getMessage(), null, 500);
         }
@@ -72,20 +71,20 @@ class ItemController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'marca' => 'sometimes|required|string|max:255',
-            'tipo' => 'sometimes|required|string|max:255',
-            'talla' => 'sometimes|required|string|max:50',
+            'tipo' => 'sometimes|required|string|in:polera,pantalón,camisa,chaqueta,falda,vestido,zapato,zapatilla', // Mejorado
+            'talla' => 'sometimes|required|integer', // Mejorado
             'stock' => 'sometimes|required|integer|min:0',
         ]);
 
         if ($validator->fails()) {
-            return $this->response(false, 'Error de validación ', $validator->errors(), 422);
+            return $this->response(false, 'Error de validación', $validator->errors(), 422);
         }
 
         try {
-            // Actualiza el item con los datos validados
             $item->update($validator->validated());
-
-            return $this->response(true, 'item actualizado', $item);
+            // ANTES: $this->response(1, 'item actualizado', $item);
+            // AHORA:
+            return $this->response(true, 'Item actualizado correctamente', $item);
         } catch (\Exception $e) {
             return $this->response(false, 'Error al actualizar item: ' . $e->getMessage(), null, 500);
         }
@@ -100,47 +99,37 @@ class ItemController extends Controller
             return $this->response(false, 'Item no encontrado', null, 404);
         }
 
-        try {
-            // Elimina el item
-            $item->delete();
-
-            return $this->response(true, 'item eliminado correctamente', null, 200);
-        } catch (\Exception $e) {
-            return $this->response(false, 'Error al eliminar item: ' . $e->getMessage(), null, 500);
-        }
-
-        // Validación de seguridad: no permitir eliminar si hay stock.
         if ($item->stock > 0) {
             return $this->response(false, 'No se puede eliminar una prenda que tiene stock.', null, 409);
         }
 
         try {
             $item->delete();
-            return $this->response(true, 'Prenda eliminada correctamente', null, 200);
+            // ANTES: $this->response(1, 'item eliminado correctamente', null);
+            // AHORA:
+            return $this->response(true, 'Item eliminado correctamente 1111', null, 200);
         } catch (\Exception $e) {
-            return $this->response(false, 'Error al eliminar la prenda: ' . $e->getMessage(), null, 500);
+            return $this->response(false, 'Error al eliminar itemmmmm : ' . $e->getMessage(), null, 500);
         }
-
     }
 
     public function inventory()
     {
         try {
-            // Usamos withCount para que Eloquent cuente eficientemente los registros de cada item.
-            // Esto es mucho más rápido que hacer un bucle.
             $items = Item::withCount('registries')->get();
 
-            // Transformamos los datos para que coincidan con lo que el frontend espera
             $inventory = $items->map(function ($item) {
                 return [
                     'marca' => $item->marca,
                     'tipo' => $item->tipo,
                     'talla' => $item->talla,
-                    'stock_disponible' => $item->stock, // El JS espera 'stock_disponible'
-                    'registros_totales' => $item->registries_count, // El JS espera 'registros_totales'
+                    'stock_disponible' => $item->stock,
+                    'registros_totales' => $item->registries_count,
                 ];
             });
 
+            // ANTES: $this->response(1, 'Inventario extraído correctamente', $inventory);
+            // AHORA:
             return $this->response(true, 'Inventario extraído correctamente', $inventory);
 
         } catch (\Exception $e) {
